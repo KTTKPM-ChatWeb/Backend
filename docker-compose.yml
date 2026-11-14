@@ -1,3 +1,5 @@
+name: www-da
+
 services:
   mariadb:
     image: mariadb:11
@@ -337,8 +339,8 @@ services:
       SFU_PORT: 4000
       SFU_LISTEN_IP: 0.0.0.0
       SFU_ANNOUNCED_IP: ${SFU_ANNOUNCED_IP:-127.0.0.1}
-      SFU_MEDIA_PORT_MIN: 40000
-      SFU_MEDIA_PORT_MAX: 49999
+      SFU_MEDIA_PORT_MIN: ${SFU_MEDIA_PORT_MIN:-40000}
+      SFU_MEDIA_PORT_MAX: ${SFU_MEDIA_PORT_MAX:-40099}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_PASSWORD: ""
@@ -347,7 +349,12 @@ services:
     expose:
       - "4000"
     ports:
-      - "40000-49999:40000-49999/udp"
+      - "${SFU_MEDIA_PORT_MIN:-40000}-${SFU_MEDIA_PORT_MAX:-40099}:${SFU_MEDIA_PORT_MIN:-40000}-${SFU_MEDIA_PORT_MAX:-40099}/udp"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   nginx:
     image: nginx:1.27-alpine
@@ -378,15 +385,6 @@ services:
       - "5349"
       - "3478/udp"
       - "5349/udp"
-
-  ngrok:
-    image: ngrok/ngrok:latest
-    restart: unless-stopped
-    environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
-    command: http nginx:80 --domain=${NGROK_DOMAIN}
-    depends_on:
-      - nginx
 
 volumes:
   mariadb_data:
